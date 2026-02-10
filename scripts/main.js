@@ -3148,14 +3148,36 @@ define("gui", ["require", "exports", "common", "guiprocessmanager", "settings"],
         });
     }
     exports.updateOutput = updateOutput;
-    function createPaletteHtml(colorsByIndex) {
-        let html = "";
-        for (let c = 0; c < colorsByIndex.length; c++) {
-            const style = "background-color: " + `rgb(${colorsByIndex[c][0]},${colorsByIndex[c][1]},${colorsByIndex[c][2]})`;
-            html += `<div class="color" class="tooltipped" style="${style}" data-tooltip="${colorsByIndex[c][0]},${colorsByIndex[c][1]},${colorsByIndex[c][2]}">${c}</div>`;
-        }
-        return $(html);
+function createPaletteHtml(colorsByIndex) {
+    // brightness helper (0..255-ish)
+    function luminance(rgb) {
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
     }
+
+    // pair each color with its original index, then sort dark -> light
+    const indexed = colorsByIndex.map((rgb, oldIndex) => ({
+        rgb,
+        oldIndex,
+        lum: luminance(rgb),
+    })).sort((a, b) => a.lum - b.lum);
+
+    let html = "";
+    for (let newIndex = 0; newIndex < indexed.length; newIndex++) {
+        const rgb = indexed[newIndex].rgb;
+        const oldIndex = indexed[newIndex].oldIndex;
+
+        const style = "background-color: " + `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+
+        // Use 1-based numbers (more natural for humans)
+        const label = newIndex + 1;
+
+        // Tooltip includes old index for debugging; remove "Old:" later if you want
+        html += `<div class="color tooltipped" style="${style}" data-tooltip="RGB:${rgb[0]},${rgb[1]},${rgb[2]} | Old:${oldIndex}">${label}</div>`;
+    }
+
+    return $(html);
+}
+
     function downloadPalettePng() {
         if (processResult == null) {
             return;
