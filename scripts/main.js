@@ -2635,6 +2635,11 @@ define("facetLabelPlacer", ["require", "exports", "common", "lib/polylabel", "st
 /**
  * Module that manages the GUI when processing
  */
+
+function luminance(rgb) {
+    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+}
+
 define("guiprocessmanager", ["require", "exports", "colorreductionmanagement", "common", "facetBorderSegmenter", "facetBorderTracer", "facetCreator", "facetLabelPlacer", "facetmanagement", "facetReducer", "gui", "structs/point"], function (require, exports, colorreductionmanagement_2, common_7, facetBorderSegmenter_1, facetBorderTracer_1, facetCreator_3, facetLabelPlacer_1, facetmanagement_4, facetReducer_1, gui_1, point_5) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2900,8 +2905,26 @@ define("guiprocessmanager", ["require", "exports", "colorreductionmanagement", "
                 const svg = document.createElementNS(xmlns, "svg");
                 svg.setAttribute("width", sizeMultiplier * facetResult.width + "");
                 svg.setAttribute("height", sizeMultiplier * facetResult.height + "");
+                // --- BEGIN: reorder palette + build oldIndex->newIndex map (LIGHT -> DARK) ---
+                const indexed = colorsByIndex.map((rgb, oldIndex) => ({
+                rgb,
+                oldIndex,
+                lum: luminance(rgb)
+                })).sort((a, b) => b.lum - a.lum); // light -> dark
+
+                const oldToNew = new Array(colorsByIndex.length);
+                const newColorsByIndex = indexed.map((x, newIndex) => {
+                oldToNew[x.oldIndex] = newIndex;
+                return x.rgb;
+                });
+
+                // IMPORTANT: use the new palette from here on
+                colorsByIndex = newColorsByIndex;
+                // --- END ---
+
                 let count = 0;
                 for (const f of facetResult.facets) {
+                    const mappedColor = oldToNew[f.color];
                     if (f != null && f.borderSegments.length > 0) {
                         let newpath = [];
                         const useSegments = true;
@@ -2943,12 +2966,12 @@ define("guiprocessmanager", ["require", "exports", "colorreductionmanagement", "
                             // make the border the same color as the fill color if there is no border stroke
                             // to not have gaps in between facets
                             if (fill) {
-                                svgPath.style.stroke = `rgb(${colorsByIndex[f.color][0]},${colorsByIndex[f.color][1]},${colorsByIndex[f.color][2]})`;
+                                svgPath.style.stroke = `rgb(${colorsByIndex[mappedColor][0]},${colorsByIndex[mappedColor][1]},${colorsByIndex[mappedColor][2]})`;
                             }
                         }
                         svgPath.style.strokeWidth = "1px"; // Set stroke width
                         if (fill) {
-                            svgPath.style.fill = `rgb(${colorsByIndex[f.color][0]},${colorsByIndex[f.color][1]},${colorsByIndex[f.color][2]})`;
+                            svgPath.style.fill = `rgb(${colorsByIndex[mappedColor][0]},${colorsByIndex[mappedColor][1]},${colorsByIndex[mappedColor][2]})`;
                         }
                         else {
                             svgPath.style.fill = "none";
@@ -2986,7 +3009,7 @@ define("guiprocessmanager", ["require", "exports", "colorreductionmanagement", "
                             txt.setAttribute("dominant-baseline", "middle");
                             txt.setAttribute("text-anchor", "middle");
                             txt.setAttribute("fill", fontColor);
-                            txt.textContent = f.color + "";
+                            txt.textContent = (mappedColor + 1) + "";
                             const subsvg = document.createElementNS(xmlns, "svg");
                             subsvg.setAttribute("width", f.labelBounds.width * sizeMultiplier + "");
                             subsvg.setAttribute("height", f.labelBounds.height * sizeMultiplier + "");
