@@ -3159,7 +3159,7 @@ function createPaletteHtml(colorsByIndex) {
         rgb,
         oldIndex,
         lum: luminance(rgb),
-    })).sort((a, b) => a.lum - b.lum);
+    })).sort((a, b) => b.lum - a.lum);
 
     let html = "";
     for (let newIndex = 0; newIndex < indexed.length; newIndex++) {
