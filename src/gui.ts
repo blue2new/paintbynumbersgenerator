@@ -132,21 +132,36 @@ export async function updateOutput() {
     }
 }
 
-function createPaletteHtml(colorsByIndex: RGB[]) {
-    let html = "";
-    for (let c: number = 0; c < colorsByIndex.length; c++) {
-        const style = "background-color: " + `rgb(${colorsByIndex[c][0]},${colorsByIndex[c][1]},${colorsByIndex[c][2]})`;
-        html += `<div class="color" class="tooltipped" style="${style}" data-tooltip="${colorsByIndex[c][0]},${colorsByIndex[c][1]},${colorsByIndex[c][2]}">${c}</div>`;
-    }
-    return $(html);
-}
-
 function luminance(color: RGB): number { // relative luminance https://en.wikipedia.org/wiki/Relative_luminance
     const r = color[0] / 255;
     const g = color[1] / 255;
     const b = color[2] / 255;
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
+
+function createPaletteHtml(colorsByIndex: RGB[]) {
+  // Create (color + original index) pairs
+  const indexed = colorsByIndex.map((rgb, idx) => ({ rgb, idx, lum: luminance(rgb) }));
+
+  // Sort darkest -> lightest
+  indexed.sort((a, b) => a.lum - b.lum);
+
+  let html = "";
+  for (let newIndex = 0; newIndex < indexed.length; newIndex++) {
+    const { rgb, idx: oldIndex } = indexed[newIndex];
+
+    const style = "background-color: " + `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+
+    // Display number should match sorted order (1..N is more human-friendly)
+    const displayNumber = newIndex + 1;
+
+    // Optional: include old index in tooltip so you can debug
+    html += `<div class="color tooltipped" style="${style}" data-tooltip="New:${displayNumber} Old:${oldIndex} RGB:${rgb[0]},${rgb[1]},${rgb[2]}">${displayNumber}</div>`;
+  }
+
+  return $(html);
+}
+
 
 export function downloadPalettePng() {
     if (processResult == null) { return; }
