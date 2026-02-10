@@ -2905,26 +2905,22 @@ define("guiprocessmanager", ["require", "exports", "colorreductionmanagement", "
                 const svg = document.createElementNS(xmlns, "svg");
                 svg.setAttribute("width", sizeMultiplier * facetResult.width + "");
                 svg.setAttribute("height", sizeMultiplier * facetResult.height + "");
-                // --- BEGIN: reorder palette + build oldIndex->newIndex map (LIGHT -> DARK) ---
-                const indexed = colorsByIndex.map((rgb, oldIndex) => ({
-                rgb,
-                oldIndex,
-                lum: luminance(rgb)
-                })).sort((a, b) => b.lum - a.lum); // light -> dark
+                // Build a mapping from original palette index -> rank (LIGHT -> DARK)
+                function luminance(rgb) {
+                    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+                }
 
-                const oldToNew = new Array(colorsByIndex.length);
-                const newColorsByIndex = indexed.map((x, newIndex) => {
-                oldToNew[x.oldIndex] = newIndex;
-                return x.rgb;
-                });
+                const order = colorsByIndex
+                    .map((rgb, idx) => ({ idx, lum: luminance(rgb) }))
+                    .sort((a, b) => b.lum - a.lum); // light -> dark
 
-                // IMPORTANT: use the new palette from here on
-                colorsByIndex = newColorsByIndex;
-                // --- END ---
+                const oldToRank = new Array(colorsByIndex.length);
+                for (let rank = 0; rank < order.length; rank++) {
+                    oldToRank[order[rank].idx] = rank; // 0-based rank
+                }
 
                 let count = 0;
                 for (const f of facetResult.facets) {
-                    const mappedColor = oldToNew[f.color];
                     if (f != null && f.borderSegments.length > 0) {
                         let newpath = [];
                         const useSegments = true;
@@ -2966,12 +2962,12 @@ define("guiprocessmanager", ["require", "exports", "colorreductionmanagement", "
                             // make the border the same color as the fill color if there is no border stroke
                             // to not have gaps in between facets
                             if (fill) {
-                                svgPath.style.stroke = `rgb(${colorsByIndex[mappedColor][0]},${colorsByIndex[mappedColor][1]},${colorsByIndex[mappedColor][2]})`;
+                                svgPath.style.stroke = `rgb(${colorsByIndex[f.color][0]},${colorsByIndex[f.color][1]},${colorsByIndex[f.color][2]})`;
                             }
                         }
                         svgPath.style.strokeWidth = "1px"; // Set stroke width
                         if (fill) {
-                            svgPath.style.fill = `rgb(${colorsByIndex[mappedColor][0]},${colorsByIndex[mappedColor][1]},${colorsByIndex[mappedColor][2]})`;
+                            svgPath.style.fill = `rgb(${colorsByIndex[f.color][0]},${colorsByIndex[f.color][1]},${colorsByIndex[f.color][2]})`;
                         }
                         else {
                             svgPath.style.fill = "none";
@@ -3009,7 +3005,14 @@ define("guiprocessmanager", ["require", "exports", "colorreductionmanagement", "
                             txt.setAttribute("dominant-baseline", "middle");
                             txt.setAttribute("text-anchor", "middle");
                             txt.setAttribute("fill", fontColor);
-                            txt.textContent = (mappedColor + 1) + "";
+                            // Use rank (1..N) so labels match the sorted palette
+                            const c = f.color;
+                            if (typeof c === "number" && c >= 0 && c < oldToRank.length) {
+                                txt.textContent = (oldToRank[c] + 1) + "";
+                            } else {
+                                // Fallback: keep original if something weird happens
+                                txt.textContent = (c + "");
+                            }
                             const subsvg = document.createElementNS(xmlns, "svg");
                             subsvg.setAttribute("width", f.labelBounds.width * sizeMultiplier + "");
                             subsvg.setAttribute("height", f.labelBounds.height * sizeMultiplier + "");
