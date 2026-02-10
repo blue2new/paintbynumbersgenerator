@@ -141,9 +141,16 @@ function createPaletteHtml(colorsByIndex: RGB[]) {
     return $(html);
 }
 
+function luminance(color: RGB): number { // relative luminance https://en.wikipedia.org/wiki/Relative_luminance
+    const r = color[0] / 255;
+    const g = color[1] / 255;
+    const b = color[2] / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 export function downloadPalettePng() {
     if (processResult == null) { return; }
-    const colorsByIndex: RGB[] = processResult.colorsByIndex;
+    const colorsByIndex: RGB[] = processResult.colorsByIndex.sort((a, b) => luminance(a) - luminance(b)); // sort by luminance for better visibility of numbers
 
     const canvas = document.createElement("canvas");
 
